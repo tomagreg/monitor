@@ -2,8 +2,11 @@ from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 import psutil
 import subprocess
+import threading
 import time
 from services import SERVICES
+
+REPO_DIR = "/home/tomagreg/repos/monitor"
 
 app = Flask(__name__)
 CORS(app)
@@ -73,6 +76,27 @@ def api_services():
             "controllable": svc.get("controllable", False),
         })
     return jsonify(result)
+
+
+@app.route("/api/update", methods=["POST"])
+def api_update():
+    try:
+        pull = subprocess.run(
+            ["git", "pull"],
+            capture_output=True, text=True, timeout=30, cwd=REPO_DIR
+        )
+        if pull.returncode != 0:
+            return jsonify({"error": pull.stderr or pull.stdout}), 500
+        output = pull.stdout.strip()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    def delayed_restart():
+        time.sleep(1.5)
+        subprocess.run(["sudo", "systemctl", "restart", "monitor"])
+
+    threading.Thread(target=delayed_restart, daemon=True).start()
+    return jsonify({"output": output})
 
 
 @app.route("/api/services/<unit>/action", methods=["POST"])
