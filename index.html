@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PI-TOMA — Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0a0b0d;
+      --bg2:       #0f1114;
+      --bg3:       #161820;
+      --border:    #1e2130;
+      --border2:   #2a2d3e;
+      --amber:     #f5a623;
+      --amber-dim: #7a530f;
+      --green:     #39d98a;
+      --green-dim: #1a6640;
+      --red:       #ff4d4d;
+      --red-dim:   #7a1f1f;
+      --blue:      #4d9fff;
+      --muted:     #3a3d52;
+      --text:      #c8ccd8;
+      --text-dim:  #5a5e75;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-disp: 'Syne', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      min-height: 100vh;
+      padding: 24px;
+      /* subtle scan-line texture */
+      background-image: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255,255,255,0.012) 2px,
+        rgba(255,255,255,0.012) 4px
+      );
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .logo-host {
+      font-family: var(--font-disp);
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .logo-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+    .uptime-badge {
+      font-size: 11px;
+      color: var(--green);
+      letter-spacing: 1px;
+    }
+    .last-update {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .pulse {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-right: 6px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(57,217,138,0.4); }
+      50%       { opacity: 0.6; box-shadow: 0 0 0 4px rgba(57,217,138,0); }
+    }
+
+    /* ── Section titles ──────────────────────────────────────────── */
+    .section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Resource grid ───────────────────────────────────────────── */
+    .resources-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 800px) {
+      .resources-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .res-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 18px 16px 14px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .res-card:hover { border-color: var(--border2); }
+    .res-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent, var(--amber));
+      opacity: 0.7;
+    }
+
+    .res-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .res-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent, var(--amber));
+      line-height: 1;
+      margin-bottom: 6px;
+      transition: color 0.3s;
+    }
+    .res-value span { font-size: 13px; font-weight: 400; color: var(--text-dim); }
+    .res-sub {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    /* Progress bar */
+    .bar-track {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent, var(--amber));
+      transition: width 0.6s ease, background-color 0.3s;
+    }
+
+    /* ── Services grid ───────────────────────────────────────────── */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .svc-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.2s, transform 0.1s;
+    }
+    .svc-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+
+    .svc-indicator {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .svc-indicator.active   { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+    .svc-indicator.inactive { background: var(--muted); }
+    .svc-indicator.failed   { background: var(--red); box-shadow: 0 0 8px var(--red); }
+    .svc-indicator.unknown  { background: var(--amber); }
+
+    .svc-info { flex: 1; min-width: 0; }
+    .svc-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .svc-unit {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .svc-badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .svc-badge.active   { background: var(--green-dim); color: var(--green); }
+    .svc-badge.inactive { background: var(--bg3); color: var(--muted); }
+    .svc-badge.failed   { background: var(--red-dim); color: var(--red); }
+    .svc-badge.unknown  { background: var(--amber-dim); color: var(--amber); }
+
+    .svc-link {
+      font-size: 10px;
+      color: var(--blue);
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .svc-link:hover { opacity: 1; }
+
+    /* ── Loading / error ─────────────────────────────────────────── */
+    .loading { color: var(--text-dim); font-size: 12px; padding: 20px 0; }
+    .error-msg { color: var(--red); font-size: 11px; margin-top: 8px; }
+
+    /* ── Fade-in on load ─────────────────────────────────────────── */
+    .fade-in { animation: fadein 0.5s ease both; }
+    @keyframes fadein { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header class="fade-in">
+    <div class="logo">
+      <span class="logo-host">PI-TOMA</span>
+      <span class="logo-label">Monitor</span>
+    </div>
+    <div class="header-right">
+      <div class="uptime-badge">
+        <span class="pulse"></span>{{ uptimeFormatted }}
+      </div>
+      <div class="last-update">updated {{ lastUpdate }}</div>
+    </div>
+  </header>
+
+  <!-- Resources -->
+  <div class="section-title">System resources</div>
+  <div class="resources-grid fade-in" style="animation-delay:.05s">
+
+    <div class="res-card" :style="{'--accent': accentFor(sys.cpu?.percent)}">
+      <div class="res-label">CPU</div>
+      <div class="res-value" :style="{color: accentFor(sys.cpu?.percent)}">
+        {{ sys.cpu?.percent ?? '—' }}<span>%</span>
+      </div>
+      <div class="res-sub">{{ sys.cpu?.freq_mhz ?? '—' }} MHz · {{ sys.cpu?.cores }} cores</div>
+      <div class="bar-track"><div class="bar-fill" :style="{width: (sys.cpu?.percent ?? 0) + '%', background: accentFor(sys.cpu?.percent)}"></div></div>
+    </div>
+
+    <div class="res-card" :style="{'--accent': accentFor(sys.ram?.percent)}">
+      <div class="res-label">Memory</div>
+      <div class="res-value" :style="{color: accentFor(sys.ram?.percent)}">
+        {{ sys.ram?.percent ?? '—' }}<span>%</span>
+      </div>
+      <div class="res-sub">{{ sys.ram?.used_mb ?? '—' }} / {{ sys.ram?.total_mb ?? '—' }} MB</div>
+      <div class="bar-track"><div class="bar-fill" :style="{width: (sys.ram?.percent ?? 0) + '%', background: accentFor(sys.ram?.percent)}"></div></div>
+    </div>
+
+    <div class="res-card" :style="{'--accent': accentFor(sys.disk?.percent)}">
+      <div class="res-label">Disk</div>
+      <div class="res-value" :style="{color: accentFor(sys.disk?.percent)}">
+        {{ sys.disk?.percent ?? '—' }}<span>%</span>
+      </div>
+      <div class="res-sub">{{ sys.disk?.used_gb ?? '—' }} / {{ sys.disk?.total_gb ?? '—' }} GB</div>
+      <div class="bar-track"><div class="bar-fill" :style="{width: (sys.disk?.percent ?? 0) + '%', background: accentFor(sys.disk?.percent)}"></div></div>
+    </div>
+
+    <div class="res-card" :style="{'--accent': accentForTemp(sys.cpu?.temp_c)}">
+      <div class="res-label">CPU Temp</div>
+      <div class="res-value" :style="{color: accentForTemp(sys.cpu?.temp_c)}">
+        {{ sys.cpu?.temp_c ?? '—' }}<span>°C</span>
+      </div>
+      <div class="res-sub">{{ tempLabel(sys.cpu?.temp_c) }}</div>
+      <div class="bar-track"><div class="bar-fill" :style="{width: tempPct(sys.cpu?.temp_c) + '%', background: accentForTemp(sys.cpu?.temp_c)}"></div></div>
+    </div>
+
+  </div>
+
+  <!-- Services -->
+  <div class="section-title" style="animation-delay:.1s">Services</div>
+  <div class="services-grid fade-in" style="animation-delay:.1s">
+    <div v-if="services.length === 0" class="loading">Loading services…</div>
+    <div
+      v-for="svc in services"
+      :key="svc.systemd"
+      class="svc-card"
+    >
+      <div class="svc-indicator" :class="svc.status"></div>
+      <div class="svc-info">
+        <div class="svc-name">{{ svc.name }}</div>
+        <div class="svc-unit">{{ svc.systemd }}.service</div>
+        <a v-if="svc.url" :href="svc.url" target="_blank" class="svc-link">↗ {{ svc.url.replace('https://','') }}</a>
+      </div>
+      <div class="svc-badge" :class="svc.status">{{ svc.status }}</div>
+    </div>
+  </div>
+
+  <div v-if="error" class="error-msg">⚠ {{ error }}</div>
+
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue
+
+createApp({
+  setup() {
+    const sys      = ref({})
+    const services = ref([])
+    const error    = ref(null)
+    const now      = ref(new Date())
+    let timer = null
+
+    const lastUpdate = computed(() => {
+      return now.value.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    })
+
+    const uptimeFormatted = computed(() => {
+      const s = sys.value.uptime_s ?? 0
+      const d = Math.floor(s / 86400)
+      const h = Math.floor((s % 86400) / 3600)
+      const m = Math.floor((s % 3600) / 60)
+      if (d > 0) return `up ${d}d ${h}h`
+      if (h > 0) return `up ${h}h ${m}m`
+      return `up ${m}m`
+    })
+
+    // Color helpers
+    function accentFor(pct) {
+      if (pct == null) return 'var(--amber)'
+      if (pct > 85) return 'var(--red)'
+      if (pct > 65) return 'var(--amber)'
+      return 'var(--green)'
+    }
+    function accentForTemp(t) {
+      if (t == null) return 'var(--amber)'
+      if (t > 75) return 'var(--red)'
+      if (t > 60) return 'var(--amber)'
+      return 'var(--green)'
+    }
+    function tempLabel(t) {
+      if (t == null) return '—'
+      if (t > 75) return 'Hot — check cooling'
+      if (t > 60) return 'Warm'
+      return 'Normal'
+    }
+    function tempPct(t) {
+      if (t == null) return 0
+      return Math.min(100, Math.round((t / 85) * 100))
+    }
+
+    async function fetchAll() {
+      try {
+        const [s, sv] = await Promise.all([
+          fetch('/api/system').then(r => r.json()),
+          fetch('/api/services').then(r => r.json()),
+        ])
+        sys.value      = s
+        services.value = sv
+        error.value    = null
+        now.value      = new Date()
+      } catch (e) {
+        error.value = 'Cannot reach API — ' + e.message
+      }
+    }
+
+    onMounted(() => {
+      fetchAll()
+      timer = setInterval(fetchAll, 10000)
+    })
+    onUnmounted(() => clearInterval(timer))
+
+    return { sys, services, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>

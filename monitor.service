@@ -1,0 +1,13 @@
+[Unit]
+Description=PI-TOMA Monitor Dashboard
+After=network.target
+
+[Service]
+User=tomagreg
+WorkingDirectory=/home/tomagreg/repos/monitor
+ExecStart=/home/tomagreg/repos/monitor/venv/bin/python app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
