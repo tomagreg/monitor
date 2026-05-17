@@ -405,7 +405,7 @@
   <div class="services-grid fade-in" style="animation-delay:.1s">
     <div v-if="services.length === 0" class="loading">Loading services…</div>
     <div
-      v-for="svc in services"
+      v-for="svc in appServices"
       :key="svc.systemd"
       class="svc-card"
     >
@@ -451,6 +451,25 @@
     </div>
   </div>
 
+  <!-- Infra -->
+  <div class="section-title fade-in" style="animation-delay:.15s;margin-top:32px">Infra</div>
+  <div class="services-grid fade-in" style="animation-delay:.15s">
+    <div
+      v-for="svc in infraServices"
+      :key="svc.systemd"
+      class="svc-card"
+    >
+      <div class="svc-top">
+        <div class="svc-indicator" :class="svc.status"></div>
+        <div class="svc-info">
+          <div class="svc-name">{{ svc.name }}</div>
+          <div class="svc-unit">{{ svc.systemd }}.service</div>
+        </div>
+        <div class="svc-badge" :class="svc.status">{{ svc.status }}</div>
+      </div>
+    </div>
+  </div>
+
   <div v-if="error" class="error-msg">⚠ {{ error }}</div>
 
 </div>{% endraw %}
@@ -473,6 +492,9 @@ createApp({
     const logPanels = {}
     let timer     = null
     let logTimers = {}
+
+    const appServices   = computed(() => services.value.filter(s => s.controllable))
+    const infraServices = computed(() => services.value.filter(s => !s.controllable))
 
     const lastUpdate = computed(() => {
       return now.value.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -601,7 +623,7 @@ createApp({
       Object.values(logTimers).forEach(clearInterval)
     })
 
-    return { sys, services, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
+    return { sys, services, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
   }
 }).mount('#app')
 </script>
