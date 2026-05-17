@@ -262,7 +262,7 @@
   </style>
 </head>
 <body>
-<div id="app">
+{% raw %}<div id="app">
 
   <!-- Header -->
   <header class="fade-in">
@@ -341,7 +341,7 @@
 
   <div v-if="error" class="error-msg">⚠ {{ error }}</div>
 
-</div>
+</div>{% endraw %}
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script>
