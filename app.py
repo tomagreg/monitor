@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 import psutil
 import subprocess
@@ -72,6 +72,27 @@ def api_services():
             "url": svc.get("url"),
         })
     return jsonify(result)
+
+
+@app.route("/api/services/<unit>/action", methods=["POST"])
+def api_service_action(unit):
+    known_units = {svc["systemd"] for svc in SERVICES}
+    if unit not in known_units:
+        return jsonify({"error": "unknown service"}), 404
+
+    action = request.json.get("action") if request.is_json else None
+    if action not in ("start", "stop", "restart"):
+        return jsonify({"error": "invalid action"}), 400
+
+    try:
+        subprocess.run(
+            ["sudo", "systemctl", action, unit],
+            capture_output=True, text=True, timeout=15, check=True
+        )
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": e.stderr or e.stdout}), 500
+
+    return jsonify({"status": get_service_status(unit)})
 
 
 # ── Frontend ──────────────────────────────────────────────────────────────────

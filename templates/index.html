@@ -252,6 +252,28 @@
     }
     .svc-link:hover { opacity: 1; }
 
+    /* ── Service action buttons ──────────────────────────────────── */
+    .svc-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .btn-svc {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .btn-svc:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-start   { background: var(--green-dim);  color: var(--green); border-color: var(--green-dim); }
+    .btn-stop    { background: var(--red-dim);    color: var(--red);   border-color: var(--red-dim); }
+    .btn-restart { background: var(--bg3);        color: var(--amber); border-color: var(--amber-dim); }
+    .btn-svc:not(:disabled):hover { opacity: 0.8; }
+
     /* ── Loading / error ─────────────────────────────────────────── */
     .loading { color: var(--text-dim); font-size: 12px; padding: 20px 0; }
     .error-msg { color: var(--red); font-size: 11px; margin-top: 8px; }
@@ -336,6 +358,25 @@
         <a v-if="svc.url" :href="svc.url" target="_blank" class="svc-link">↗ {{ svc.url.replace('https://','') }}</a>
       </div>
       <div class="svc-badge" :class="svc.status">{{ svc.status }}</div>
+      <div v-if="svc.url" class="svc-actions">
+        <button
+          v-if="svc.status === 'active'"
+          class="btn-svc btn-stop"
+          :disabled="busy[svc.systemd]"
+          @click="serviceAction(svc, 'stop')"
+        >{{ busy[svc.systemd] === 'stop' ? '…' : '■ stop' }}</button>
+        <button
+          v-else
+          class="btn-svc btn-start"
+          :disabled="busy[svc.systemd]"
+          @click="serviceAction(svc, 'start')"
+        >{{ busy[svc.systemd] === 'start' ? '…' : '▶ start' }}</button>
+        <button
+          class="btn-svc btn-restart"
+          :disabled="busy[svc.systemd]"
+          @click="serviceAction(svc, 'restart')"
+        >{{ busy[svc.systemd] === 'restart' ? '…' : '↺ restart' }}</button>
+      </div>
     </div>
   </div>
 
@@ -353,6 +394,7 @@ createApp({
     const services = ref([])
     const error    = ref(null)
     const now      = ref(new Date())
+    const busy     = ref({})
     let timer = null
 
     const lastUpdate = computed(() => {
@@ -393,6 +435,24 @@ createApp({
       return Math.min(100, Math.round((t / 85) * 100))
     }
 
+    async function serviceAction(svc, action) {
+      busy.value[svc.systemd] = action
+      try {
+        const res = await fetch(`/api/services/${svc.systemd}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        })
+        const data = await res.json()
+        if (!res.ok) { error.value = data.error || 'Action failed'; return }
+        svc.status = data.status
+      } catch (e) {
+        error.value = 'Cannot reach API — ' + e.message
+      } finally {
+        delete busy.value[svc.systemd]
+      }
+    }
+
     async function fetchAll() {
       try {
         const [s, sv] = await Promise.all([
@@ -414,7 +474,7 @@ createApp({
     })
     onUnmounted(() => clearInterval(timer))
 
-    return { sys, services, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct }
+    return { sys, services, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction }
   }
 }).mount('#app')
 </script>
