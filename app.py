@@ -99,6 +99,19 @@ def api_update():
     return jsonify({"output": output})
 
 
+@app.route("/api/services/<unit>/logs")
+def api_service_logs(unit):
+    known_units = {svc["systemd"] for svc in SERVICES}
+    if unit not in known_units:
+        return jsonify({"error": "unknown service"}), 404
+    n = min(int(request.args.get("n", 60)), 200)
+    result = subprocess.run(
+        ["journalctl", "-u", unit, "-n", str(n), "--no-pager", "--output=short-iso"],
+        capture_output=True, text=True, timeout=5
+    )
+    return jsonify({"lines": result.stdout.splitlines()})
+
+
 @app.route("/api/services/<unit>/action", methods=["POST"])
 def api_service_action(unit):
     known_units = {svc["systemd"] for svc in SERVICES}

@@ -293,6 +293,42 @@
     .btn-restart { background: var(--bg3);        color: var(--amber); border-color: var(--amber-dim); }
     .btn-svc:not(:disabled):hover { opacity: 0.8; }
 
+    /* ── Logs panel ──────────────────────────────────────────────── */
+    .btn-logs {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-logs.active,
+    .btn-logs:hover { color: var(--blue); border-color: var(--blue); }
+
+    .log-panel {
+      background: #05060a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-dim);
+      white-space: pre-wrap;
+      word-break: break-all;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border2) transparent;
+    }
+    .log-panel .log-ts  { color: var(--text-dim); opacity: 0.6; }
+    .log-panel .log-err { color: var(--red); }
+    .log-panel .log-warn{ color: var(--amber); }
+    .log-panel .log-ok  { color: var(--green); }
+
     /* ── Loading / error ─────────────────────────────────────────── */
     .loading { color: var(--text-dim); font-size: 12px; padding: 20px 0; }
     .error-msg { color: var(--red); font-size: 11px; margin-top: 8px; }
@@ -400,6 +436,17 @@
           :disabled="busy[svc.systemd]"
           @click="serviceAction(svc, 'restart')"
         >{{ busy[svc.systemd] === 'restart' ? '…' : '↺ restart' }}</button>
+        <button
+          class="btn-logs"
+          :class="{ active: showLogs[svc.systemd] }"
+          @click="toggleLogs(svc.systemd)"
+        >▤ logs</button>
+      </div>
+      <div v-if="showLogs[svc.systemd]" class="log-panel" :ref="el => logPanels[svc.systemd] = el">
+        <span v-if="!logs[svc.systemd]" style="opacity:.4">Loading…</span>
+        <template v-else>
+          <div v-for="(line, i) in logs[svc.systemd]" :key="i" :class="logClass(line)">{{ line }}</div>
+        </template>
       </div>
     </div>
   </div>
@@ -421,7 +468,11 @@ createApp({
     const busy      = ref({})
     const updating  = ref(false)
     const updateMsg = ref('')
-    let timer = null
+    const logs      = ref({})
+    const showLogs  = ref({})
+    const logPanels = {}
+    let timer     = null
+    let logTimers = {}
 
     const lastUpdate = computed(() => {
       return now.value.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -459,6 +510,37 @@ createApp({
     function tempPct(t) {
       if (t == null) return 0
       return Math.min(100, Math.round((t / 85) * 100))
+    }
+
+    function logClass(line) {
+      const l = line.toLowerCase()
+      if (/error|exception|traceback|critical/.test(l)) return 'log-err'
+      if (/warn/.test(l)) return 'log-warn'
+      if (/start|ready|listen|success/.test(l)) return 'log-ok'
+      return ''
+    }
+
+    async function fetchLogs(unit) {
+      try {
+        const res = await fetch(`/api/services/${unit}/logs`)
+        const data = await res.json()
+        logs.value[unit] = data.lines ?? []
+        await Vue.nextTick()
+        const el = logPanels[unit]
+        if (el) el.scrollTop = el.scrollHeight
+      } catch (_) {}
+    }
+
+    function toggleLogs(unit) {
+      if (showLogs.value[unit]) {
+        showLogs.value[unit] = false
+        clearInterval(logTimers[unit])
+        delete logTimers[unit]
+      } else {
+        showLogs.value[unit] = true
+        fetchLogs(unit)
+        logTimers[unit] = setInterval(() => fetchLogs(unit), 5000)
+      }
     }
 
     async function pullAndRestart() {
@@ -514,9 +596,12 @@ createApp({
       fetchAll()
       timer = setInterval(fetchAll, 10000)
     })
-    onUnmounted(() => clearInterval(timer))
+    onUnmounted(() => {
+      clearInterval(timer)
+      Object.values(logTimers).forEach(clearInterval)
+    })
 
-    return { sys, services, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart }
+    return { sys, services, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
   }
 }).mount('#app')
 </script>
