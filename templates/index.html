@@ -198,11 +198,16 @@
       border-radius: 6px;
       padding: 16px;
       display: flex;
-      align-items: center;
-      gap: 14px;
+      flex-direction: column;
+      gap: 12px;
       transition: border-color 0.2s, transform 0.1s;
     }
     .svc-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+    .svc-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
 
     .svc-indicator {
       width: 10px; height: 10px;
@@ -256,7 +261,6 @@
     .svc-actions {
       display: flex;
       gap: 6px;
-      flex-shrink: 0;
     }
     .btn-svc {
       font-family: var(--font-mono);
@@ -351,14 +355,16 @@
       :key="svc.systemd"
       class="svc-card"
     >
-      <div class="svc-indicator" :class="svc.status"></div>
-      <div class="svc-info">
-        <div class="svc-name">{{ svc.name }}</div>
-        <div class="svc-unit">{{ svc.systemd }}.service</div>
-        <a v-if="svc.url" :href="svc.url" target="_blank" class="svc-link">↗ {{ svc.url.replace('https://','') }}</a>
+      <div class="svc-top">
+        <div class="svc-indicator" :class="svc.status"></div>
+        <div class="svc-info">
+          <div class="svc-name">{{ svc.name }}</div>
+          <div class="svc-unit">{{ svc.systemd }}.service</div>
+          <a v-if="svc.url" :href="svc.url" target="_blank" class="svc-link">↗ {{ svc.url.replace('https://','') }}</a>
+        </div>
+        <div class="svc-badge" :class="svc.status">{{ svc.status }}</div>
       </div>
-      <div class="svc-badge" :class="svc.status">{{ svc.status }}</div>
-      <div v-if="svc.url" class="svc-actions">
+      <div v-if="svc.controllable" class="svc-actions">
         <button
           v-if="svc.status === 'active'"
           class="btn-svc btn-stop"

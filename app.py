@@ -66,10 +66,11 @@ def api_services():
     result = []
     for svc in SERVICES:
         result.append({
-            "name": svc["name"],
-            "systemd": svc["systemd"],
-            "status": get_service_status(svc["systemd"]),
-            "url": svc.get("url"),
+            "name":         svc["name"],
+            "systemd":      svc["systemd"],
+            "status":       get_service_status(svc["systemd"]),
+            "url":          svc.get("url"),
+            "controllable": svc.get("controllable", False),
         })
     return jsonify(result)
 

@@ -4,8 +4,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 SERVICES = [
-    {"name": "BarTracker",  "systemd": "bartracker",  "url": "https://bartrackr.fr"},
-    {"name": "Cloudflared", "systemd": "cloudflared", "url": None},
-    {"name": "Tailscale",   "systemd": "tailscaled",  "url": None},
-    {"name": "MCP Obsidian", "systemd": "mcp-obsidian", "url": None},
+    {"name": "BarTracker",   "systemd": "bartracker",   "url": "https://bartrackr.fr", "controllable": True},
+    {"name": "Cloudflared",  "systemd": "cloudflared",  "url": None,                   "controllable": False},
+    {"name": "Tailscale",    "systemd": "tailscaled",   "url": None,                   "controllable": False},
+    {"name": "MCP Obsidian", "systemd": "mcp-obsidian", "url": None,                   "controllable": True},
 ]
