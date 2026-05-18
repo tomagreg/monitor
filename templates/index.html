@@ -292,8 +292,7 @@
     .btn-start   { background: var(--green-dim);  color: var(--green); border-color: var(--green-dim); }
     .btn-stop    { background: var(--red-dim);    color: var(--red);   border-color: var(--red-dim); }
     .btn-restart { background: var(--bg3);        color: var(--amber); border-color: var(--amber-dim); }
-    .btn-calibrate { background: var(--bg3); color: var(--blue); border-color: #1e3a5f; }
-    .btn-svc:not(:disabled):hover { opacity: 0.8; }
+.btn-svc:not(:disabled):hover { opacity: 0.8; }
 
     /* ── Logs panel ──────────────────────────────────────────────── */
     .btn-logs {
@@ -443,12 +442,6 @@
           :class="{ active: showLogs[svc.systemd] }"
           @click="toggleLogs(svc.systemd)"
         >▤ logs</button>
-        <button
-          v-if="svc.calibrate"
-          class="btn-svc btn-calibrate"
-          :disabled="calibrating[svc.systemd]"
-          @click="runCalibrate(svc)"
-        >{{ calibrating[svc.systemd] ? '…' : '⟳ calibrate' }}</button>
       </div>
       <div v-if="showLogs[svc.systemd]" class="log-panel" :ref="el => logPanels[svc.systemd] = el">
         <span v-if="!logs[svc.systemd]" style="opacity:.4">Loading…</span>
@@ -493,7 +486,6 @@ createApp({
     const error    = ref(null)
     const now      = ref(new Date())
     const busy        = ref({})
-    const calibrating = ref({})
     const updating  = ref(false)
     const updateMsg = ref('')
     const logs      = ref({})
@@ -590,19 +582,6 @@ createApp({
       }
     }
 
-    async function runCalibrate(svc) {
-      calibrating.value[svc.systemd] = true
-      try {
-        const res = await fetch('/api/postroom/calibrate', { method: 'POST' })
-        const data = await res.json()
-        if (!res.ok) error.value = data.error || 'Calibrate failed'
-      } catch (e) {
-        error.value = 'Cannot reach API — ' + e.message
-      } finally {
-        calibrating.value[svc.systemd] = false
-      }
-    }
-
     async function serviceAction(svc, action) {
       busy.value[svc.systemd] = action
       try {
@@ -645,7 +624,7 @@ createApp({
       Object.values(logTimers).forEach(clearInterval)
     })
 
-    return { sys, services, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, calibrating, runCalibrate, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
+    return { sys, services, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
   }
 }).mount('#app')
 </script>

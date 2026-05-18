@@ -74,7 +74,6 @@ def api_services():
             "status":       get_service_status(svc["systemd"]),
             "url":          svc.get("url"),
             "controllable": svc.get("controllable", False),
-            "calibrate":    svc.get("calibrate", False),
         })
     return jsonify(result)
 
@@ -112,18 +111,6 @@ def api_service_logs(unit):
     )
     return jsonify({"lines": result.stdout.splitlines()})
 
-
-@app.route("/api/postroom/calibrate", methods=["POST"])
-def api_postroom_calibrate():
-    try:
-        proc = subprocess.Popen(
-            ["sudo", "-u", "postroom", "bash", "-c",
-             "cd /opt/postroom && .venv/bin/python src/main.py --calibrate"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    return jsonify({"pid": proc.pid})
 
 
 @app.route("/api/services/<unit>/action", methods=["POST"])
