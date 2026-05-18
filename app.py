@@ -1,59 +1,15 @@
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
-import json as _json
-import os
 import psutil
 import subprocess
 import threading
 import time
-import urllib.request
 from services import SERVICES
-
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-_claude_cache = {"data": None, "ts": 0}
-_CLAUDE_TTL = 300  # 5 minutes
 
 REPO_DIR = "/home/tomagreg/repos/monitor"
 
 app = Flask(__name__)
 CORS(app)
-
-# ── Claude API usage ─────────────────────────────────────────────────────────
-
-def fetch_claude_usage():
-    if time.time() - _claude_cache["ts"] < _CLAUDE_TTL and _claude_cache["data"]:
-        return _claude_cache["data"]
-    if not ANTHROPIC_API_KEY:
-        return None
-    try:
-        payload = _json.dumps({
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 1,
-            "messages": [{"role": "user", "content": "x"}],
-        }).encode()
-        req = urllib.request.Request(
-            "https://api.anthropic.com/v1/messages",
-            data=payload,
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            h = resp.headers
-            data = {
-                "tokens_remaining": int(h.get("anthropic-ratelimit-tokens-remaining") or 0),
-                "tokens_limit":     int(h.get("anthropic-ratelimit-tokens-limit") or 0),
-                "tokens_reset":     h.get("anthropic-ratelimit-tokens-reset") or "",
-            }
-        _claude_cache["data"] = data
-        _claude_cache["ts"]   = time.time()
-        return data
-    except Exception:
-        return _claude_cache["data"]
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -176,14 +132,6 @@ def api_service_action(unit):
         return jsonify({"error": e.stderr or e.stdout}), 500
 
     return jsonify({"status": get_service_status(unit)})
-
-
-@app.route("/api/claude-usage")
-def api_claude_usage():
-    data = fetch_claude_usage()
-    if data is None:
-        return jsonify({"error": "unavailable"}), 503
-    return jsonify(data)
 
 
 # ── Frontend ──────────────────────────────────────────────────────────────────

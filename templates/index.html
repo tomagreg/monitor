@@ -137,14 +137,11 @@
     /* ── Resource grid ───────────────────────────────────────────── */
     .resources-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 12px;
       margin-bottom: 32px;
     }
-    @media (max-width: 1000px) {
-      .resources-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-    @media (max-width: 600px) {
+    @media (max-width: 800px) {
       .resources-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
@@ -402,15 +399,6 @@
       <div class="bar-track"><div class="bar-fill" :style="{width: tempPct(sys.cpu?.temp_c) + '%', background: accentForTemp(sys.cpu?.temp_c)}"></div></div>
     </div>
 
-    <div class="res-card" :style="{'--accent': accentFor(claude.pct)}">
-      <div class="res-label">Claude API</div>
-      <div class="res-value" :style="{color: accentFor(claude.pct)}">
-        {{ claude.pct ?? '—' }}<span>%</span>
-      </div>
-      <div class="res-sub">{{ claude.remaining ?? '—' }} tokens · reset {{ claude.resetIn }}</div>
-      <div class="bar-track"><div class="bar-fill" :style="{width: (claude.pct ?? 0) + '%', background: accentFor(claude.pct)}"></div></div>
-    </div>
-
   </div>
 
   <!-- Services -->
@@ -495,7 +483,6 @@ createApp({
   setup() {
     const sys      = ref({})
     const services = ref([])
-    const claude   = ref({})
     const error    = ref(null)
     const now      = ref(new Date())
     const busy        = ref({})
@@ -613,29 +600,6 @@ createApp({
       }
     }
 
-    function formatResetIn(isoStr) {
-      if (!isoStr) return '—'
-      const diff = Math.max(0, new Date(isoStr) - Date.now())
-      const m = Math.floor(diff / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-      if (m > 0) return `${m}m ${s}s`
-      return `${s}s`
-    }
-
-    async function fetchClaude() {
-      try {
-        const res = await fetch('/api/claude-usage')
-        if (!res.ok) return
-        const d = await res.json()
-        const pct = d.tokens_limit > 0 ? Math.round(d.tokens_remaining / d.tokens_limit * 100) : null
-        claude.value = {
-          pct,
-          remaining: d.tokens_remaining,
-          resetIn: formatResetIn(d.tokens_reset),
-        }
-      } catch (_) {}
-    }
-
     async function fetchAll() {
       try {
         const [s, sv] = await Promise.all([
@@ -653,16 +617,14 @@ createApp({
 
     onMounted(() => {
       fetchAll()
-      fetchClaude()
       timer = setInterval(fetchAll, 10000)
-      setInterval(fetchClaude, 300000)
     })
     onUnmounted(() => {
       clearInterval(timer)
       Object.values(logTimers).forEach(clearInterval)
     })
 
-    return { sys, services, claude, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
+    return { sys, services, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
   }
 }).mount('#app')
 </script>
