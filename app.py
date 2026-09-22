@@ -1,26 +1,18 @@
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
+import os
 import psutil
 import subprocess
 import threading
 import time
 from services import SERVICES
 
-REPO_DIR = "/home/tomagreg/repos/monitor"
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
 CORS(app)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def get_cpu_temp():
-    """Lit la température CPU du Pi (fichier thermal_zone)."""
-    try:
-        with open("/sys/class/thermal/thermal_zone0/temp") as f:
-            return round(int(f.read()) / 1000, 1)
-    except Exception:
-        return None
-
 
 def get_service_status(unit: str) -> str:
     """Retourne 'active', 'inactive' ou 'failed' pour une unité systemd."""
@@ -47,7 +39,6 @@ def api_system():
         "cpu": {
             "percent": psutil.cpu_percent(interval=0.5),
             "freq_mhz": round(cpu_freq.current) if cpu_freq else None,
-            "temp_c": get_cpu_temp(),
             "cores": psutil.cpu_count(),
         },
         "ram": {
@@ -93,7 +84,7 @@ def api_update():
 
     def delayed_restart():
         time.sleep(1.5)
-        subprocess.run(["sudo", "systemctl", "restart", "monitor"])
+        subprocess.run(["systemctl", "restart", "monitor"])
 
     threading.Thread(target=delayed_restart, daemon=True).start()
     return jsonify({"output": output})
@@ -125,7 +116,7 @@ def api_service_action(unit):
 
     try:
         subprocess.run(
-            ["sudo", "systemctl", action, unit],
+            ["systemctl", action, unit],
             capture_output=True, text=True, timeout=15, check=True
         )
     except subprocess.CalledProcessError as e:

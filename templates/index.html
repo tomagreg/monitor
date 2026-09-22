@@ -137,7 +137,7 @@
     /* ── Resource grid ───────────────────────────────────────────── */
     .resources-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
       margin-bottom: 32px;
     }
@@ -390,14 +390,6 @@
       <div class="bar-track"><div class="bar-fill" :style="{width: (sys.disk?.percent ?? 0) + '%', background: accentFor(sys.disk?.percent)}"></div></div>
     </div>
 
-    <div class="res-card" :style="{'--accent': accentForTemp(sys.cpu?.temp_c)}">
-      <div class="res-label">CPU Temp</div>
-      <div class="res-value" :style="{color: accentForTemp(sys.cpu?.temp_c)}">
-        {{ sys.cpu?.temp_c ?? '—' }}<span>°C</span>
-      </div>
-      <div class="res-sub">{{ tempLabel(sys.cpu?.temp_c) }}</div>
-      <div class="bar-track"><div class="bar-fill" :style="{width: tempPct(sys.cpu?.temp_c) + '%', background: accentForTemp(sys.cpu?.temp_c)}"></div></div>
-    </div>
 
   </div>
 
@@ -518,22 +510,6 @@ createApp({
       if (pct > 65) return 'var(--amber)'
       return 'var(--green)'
     }
-    function accentForTemp(t) {
-      if (t == null) return 'var(--amber)'
-      if (t > 75) return 'var(--red)'
-      if (t > 60) return 'var(--amber)'
-      return 'var(--green)'
-    }
-    function tempLabel(t) {
-      if (t == null) return '—'
-      if (t > 75) return 'Hot — check cooling'
-      if (t > 60) return 'Warm'
-      return 'Normal'
-    }
-    function tempPct(t) {
-      if (t == null) return 0
-      return Math.min(100, Math.round((t / 85) * 100))
-    }
 
     function logClass(line) {
       const l = line.toLowerCase()
@@ -624,7 +600,7 @@ createApp({
       Object.values(logTimers).forEach(clearInterval)
     })
 
-    return { sys, services, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, accentForTemp, tempLabel, tempPct, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
+    return { sys, services, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
   }
 }).mount('#app')
 </script>

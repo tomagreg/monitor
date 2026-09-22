@@ -1,11 +1,11 @@
 [Unit]
-Description=PI-TOMA Monitor Dashboard
+Description=Monitor Dashboard
 After=network.target
 
 [Service]
-User=tomagreg
-WorkingDirectory=/home/tomagreg/repos/monitor
-ExecStart=/home/tomagreg/repos/monitor/venv/bin/python app.py
+User=root
+WorkingDirectory=/root/monitor
+ExecStart=/root/monitor/venv/bin/python /root/monitor/app.py
 Restart=always
 RestartSec=5
 
