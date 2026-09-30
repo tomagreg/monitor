@@ -145,6 +145,11 @@
       .resources-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
+    .resources-grid.llm-grid { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 900px) {
+      .resources-grid.llm-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
     .res-card {
       background: var(--bg2);
       border: 1px solid var(--border);
@@ -444,6 +449,37 @@
     </div>
   </div>
 
+  <!-- LLM -->
+  <div class="section-title fade-in" style="animation-delay:.12s;margin-top:32px">LLM (Ollama)</div>
+  <div class="resources-grid llm-grid fade-in" style="animation-delay:.12s">
+    <div class="res-card">
+      <div class="res-label">Statut</div>
+      <div class="res-value" style="font-size:1.1em">
+        <span class="svc-badge" :class="llm.status ?? 'unknown'">{{ llm.status === 'active' ? (llm.loaded?.length ? 'chargé' : 'au repos') : (llm.status ?? '—') }}</span>
+      </div>
+      <div class="res-sub">
+        <template v-if="llm.loaded?.length">{{ llm.loaded.map(m => `${m.name} · ${m.size_mb} MB`).join(', ') }}</template>
+        <template v-else-if="llm.status === 'active'">aucun modèle en RAM</template>
+        <template v-else>{{ llm.error ?? 'injoignable' }}</template>
+      </div>
+    </div>
+    <div class="res-card">
+      <div class="res-label">Appels aujourd'hui</div>
+      <div class="res-value">{{ llm.calls_today ?? '—' }}</div>
+      <div class="res-sub">{{ llm.calls_7d ?? '—' }} sur 7 jours</div>
+    </div>
+    <div class="res-card">
+      <div class="res-label">Tokens aujourd'hui</div>
+      <div class="res-value">{{ llm.tokens_today ?? '—' }}</div>
+      <div class="res-sub">{{ llm.tokens_7d ?? '—' }} sur 7 jours</div>
+    </div>
+    <div class="res-card">
+      <div class="res-label">Débit moyen</div>
+      <div class="res-value">{{ llm.avg_tokens_per_second_last20 ?? '—' }}<span>tok/s</span></div>
+      <div class="res-sub">20 derniers appels</div>
+    </div>
+  </div>
+
   <!-- Infra -->
   <div class="section-title fade-in" style="animation-delay:.15s;margin-top:32px">Infra</div>
   <div class="services-grid fade-in" style="animation-delay:.15s">
@@ -475,6 +511,7 @@ createApp({
   setup() {
     const sys      = ref({})
     const services = ref([])
+    const llm      = ref({})
     const error    = ref(null)
     const now      = ref(new Date())
     const busy        = ref({})
@@ -589,6 +626,8 @@ createApp({
       } catch (e) {
         error.value = 'Cannot reach API — ' + e.message
       }
+      // Séparé : une panne du LXC llm ne doit pas bloquer le reste du dashboard.
+      fetch('/api/llm').then(r => r.json()).then(d => { llm.value = d }).catch(() => { llm.value = { status: 'failed' } })
     }
 
     onMounted(() => {
@@ -600,7 +639,7 @@ createApp({
       Object.values(logTimers).forEach(clearInterval)
     })
 
-    return { sys, services, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
+    return { sys, services, llm, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
   }
 }).mount('#app')
 </script>

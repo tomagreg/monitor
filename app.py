@@ -5,7 +5,9 @@ import psutil
 import subprocess
 import threading
 import time
-from services import SERVICES
+import json
+import urllib.request
+from services import SERVICES, LLM_PROXY_URL
 
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -123,6 +125,26 @@ def api_service_action(unit):
         return jsonify({"error": e.stderr or e.stdout}), 500
 
     return jsonify({"status": get_service_status(unit)})
+
+
+def fetch_json(url: str):
+    with urllib.request.urlopen(url, timeout=3) as r:
+        return json.load(r)
+
+
+@app.route("/api/llm")
+def api_llm():
+    """Stats du LXC llm, lues côté serveur via son proxy (port 11435)."""
+    try:
+        summary = fetch_json(f"{LLM_PROXY_URL}/stats/summary")
+        loaded = fetch_json(f"{LLM_PROXY_URL}/stats/loaded").get("models", [])
+    except Exception as e:
+        return jsonify({"status": "failed", "error": str(e)})
+    return jsonify({
+        "status": "active",
+        "loaded": [{"name": m.get("name"), "size_mb": round(m.get("size", 0) / 1024 / 1024)} for m in loaded],
+        **summary,
+    })
 
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
