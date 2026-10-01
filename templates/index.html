@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PI-TOMA — Monitor</title>
+  <title>THOMELAB</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
   <style>
@@ -205,6 +205,40 @@
       transition: width 0.6s ease, background-color 0.3s;
     }
 
+    /* Sparkline d'historique */
+    .spark {
+      display: block;
+      width: 100%;
+      height: 40px;
+      margin-top: 12px;
+      overflow: visible;
+    }
+    .spark-line { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+    .spark-area { fill: currentColor; opacity: 0.12; }
+    .spark-bar  { fill: currentColor; opacity: 0.55; }
+    .spark-base { stroke: var(--border); stroke-width: 1; }
+    .spark-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .range-switch { display: flex; gap: 4px; }
+    .range-switch button {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 3px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+    .range-switch button.active { color: var(--amber); border-color: var(--amber-dim); }
+
     /* ── Services grid ───────────────────────────────────────────── */
     .services-grid {
       display: grid;
@@ -350,7 +384,7 @@
   <!-- Header -->
   <header class="fade-in">
     <div class="logo">
-      <span class="logo-host">PI-TOMA</span>
+      <span class="logo-host">THOMELAB</span>
       <span class="logo-label">Monitor</span>
     </div>
     <div class="header-right">
@@ -358,6 +392,9 @@
         <span class="pulse"></span>{{ uptimeFormatted }}
       </div>
       <div class="last-update">updated {{ lastUpdate }}</div>
+      <div class="range-switch">
+        <button v-for="h in [1, 6, 24]" :key="h" :class="{ active: hours === h }" @click="setHours(h)">{{ h }}h</button>
+      </div>
       <button class="btn-update" :disabled="updating" @click="pullAndRestart">
         {{ updating ? updateMsg : '⟳ git pull & restart' }}
       </button>
@@ -375,6 +412,12 @@
       </div>
       <div class="res-sub">{{ sys.cpu?.freq_mhz ?? '—' }} MHz · {{ sys.cpu?.cores }} cores</div>
       <div class="bar-track"><div class="bar-fill" :style="{width: (sys.cpu?.percent ?? 0) + '%', background: accentFor(sys.cpu?.percent)}"></div></div>
+      <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" :style="{color: accentFor(sys.cpu?.percent)}">
+        <line class="spark-base" x1="0" y1="40" x2="100" y2="40" vector-effect="non-scaling-stroke" />
+        <path class="spark-area" :d="charts.cpu.area" />
+        <path class="spark-line" :d="charts.cpu.line" vector-effect="non-scaling-stroke" />
+      </svg>
+      <div class="spark-meta"><span>{{ hours }}h</span><span>max {{ charts.cpu.max }}%</span></div>
     </div>
 
     <div class="res-card" :style="{'--accent': accentFor(sys.ram?.percent)}">
@@ -384,6 +427,12 @@
       </div>
       <div class="res-sub">{{ sys.ram?.used_mb ?? '—' }} / {{ sys.ram?.total_mb ?? '—' }} MB</div>
       <div class="bar-track"><div class="bar-fill" :style="{width: (sys.ram?.percent ?? 0) + '%', background: accentFor(sys.ram?.percent)}"></div></div>
+      <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" :style="{color: accentFor(sys.ram?.percent)}">
+        <line class="spark-base" x1="0" y1="40" x2="100" y2="40" vector-effect="non-scaling-stroke" />
+        <path class="spark-area" :d="charts.ram.area" />
+        <path class="spark-line" :d="charts.ram.line" vector-effect="non-scaling-stroke" />
+      </svg>
+      <div class="spark-meta"><span>{{ hours }}h</span><span>max {{ charts.ram.max }}%</span></div>
     </div>
 
     <div class="res-card" :style="{'--accent': accentFor(sys.disk?.percent)}">
@@ -393,6 +442,12 @@
       </div>
       <div class="res-sub">{{ sys.disk?.used_gb ?? '—' }} / {{ sys.disk?.total_gb ?? '—' }} GB</div>
       <div class="bar-track"><div class="bar-fill" :style="{width: (sys.disk?.percent ?? 0) + '%', background: accentFor(sys.disk?.percent)}"></div></div>
+      <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" :style="{color: accentFor(sys.disk?.percent)}">
+        <line class="spark-base" x1="0" y1="40" x2="100" y2="40" vector-effect="non-scaling-stroke" />
+        <path class="spark-area" :d="charts.disk.area" />
+        <path class="spark-line" :d="charts.disk.line" vector-effect="non-scaling-stroke" />
+      </svg>
+      <div class="spark-meta"><span>{{ hours }}h</span><span>max {{ charts.disk.max }}%</span></div>
     </div>
 
 
@@ -467,16 +522,31 @@
       <div class="res-label">Appels aujourd'hui</div>
       <div class="res-value">{{ llm.calls_today ?? '—' }}</div>
       <div class="res-sub">{{ llm.calls_7d ?? '—' }} sur 7 jours</div>
+      <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" style="color: var(--amber)">
+        <line class="spark-base" x1="0" y1="40" x2="100" y2="40" vector-effect="non-scaling-stroke" />
+        <rect v-for="(b, i) in charts.calls.bars" :key="i" class="spark-bar" :x="b.x" :y="b.y" :width="b.w" :height="b.h" />
+      </svg>
+      <div class="spark-meta"><span>{{ hours }}h · {{ charts.calls.total }} appels</span><span>max {{ charts.calls.max }}</span></div>
     </div>
     <div class="res-card">
       <div class="res-label">Tokens aujourd'hui</div>
       <div class="res-value">{{ llm.tokens_today ?? '—' }}</div>
       <div class="res-sub">{{ llm.tokens_7d ?? '—' }} sur 7 jours</div>
+      <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" style="color: var(--amber)">
+        <line class="spark-base" x1="0" y1="40" x2="100" y2="40" vector-effect="non-scaling-stroke" />
+        <rect v-for="(b, i) in charts.tokens.bars" :key="i" class="spark-bar" :x="b.x" :y="b.y" :width="b.w" :height="b.h" />
+      </svg>
+      <div class="spark-meta"><span>{{ hours }}h · {{ charts.tokens.total }} tokens</span><span>max {{ charts.tokens.max }}</span></div>
     </div>
     <div class="res-card">
       <div class="res-label">Débit moyen</div>
       <div class="res-value">{{ llm.avg_tokens_per_second_last20 ?? '—' }}<span>tok/s</span></div>
       <div class="res-sub">20 derniers appels</div>
+      <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" style="color: var(--amber)">
+        <line class="spark-base" x1="0" y1="40" x2="100" y2="40" vector-effect="non-scaling-stroke" />
+        <path class="spark-line" :d="charts.tps.line" vector-effect="non-scaling-stroke" />
+      </svg>
+      <div class="spark-meta"><span>{{ hours }}h</span><span>max {{ charts.tps.max }} tok/s</span></div>
     </div>
   </div>
 
@@ -520,8 +590,82 @@ createApp({
     const logs      = ref({})
     const showLogs  = ref({})
     const logPanels = {}
+    const hist      = ref({})
+    const llmHist   = ref({})
+    const hours     = ref(loadHours())
     let timer     = null
+    let histTimer = null
     let logTimers = {}
+
+    // ── Historique (sparklines) ───────────────────────────────────
+    function loadHours() {
+      try { return [1, 6, 24].includes(+localStorage.getItem('hours')) ? +localStorage.getItem('hours') : 6 } catch (_) { return 6 }
+    }
+
+    function setHours(h) {
+      hours.value = h
+      try { localStorage.setItem('hours', h) } catch (_) {}
+      fetchHistory()
+    }
+
+    function fmt(v) {
+      if (v == null) return '—'
+      if (v >= 10000) return (v / 1000).toFixed(0) + 'k'
+      if (v >= 1000) return (v / 1000).toFixed(1) + 'k'
+      return Math.round(v * 10) / 10
+    }
+
+    // Courbe sur [since, now] ; coupée quand un trou dépasse maxGap secondes.
+    function lineChart(points, since, now, maxGap, floor) {
+      const empty = { line: '', area: '', max: '—' }
+      if (!points.length || !now) return empty
+      const top = Math.max(...points.map(p => p[1]))
+      const yMax = Math.max(top * 1.15, floor)
+      const x = t => ((t - since) / (now - since) * 100).toFixed(2)
+      const y = v => (40 - v / yMax * 38).toFixed(2)
+      const segs = []
+      let cur = []
+      points.forEach((p, i) => {
+        if (i && maxGap && p[0] - points[i - 1][0] > maxGap) { segs.push(cur); cur = [] }
+        cur.push(p)
+      })
+      segs.push(cur)
+      let line = '', area = ''
+      for (const s of segs) {
+        const d = s.map((p, i) => `${i ? 'L' : 'M'}${x(p[0])},${y(p[1])}`).join(' ')
+        // Point isolé : petit trait pour qu'il reste visible.
+        line += s.length === 1 ? `M${x(s[0][0]) - 0.8},${y(s[0][1])} h1.6 ` : d + ' '
+        if (s.length > 1) area += `${d} L${x(s[s.length - 1][0])},40 L${x(s[0][0])},40 Z `
+      }
+      return { line, area, max: fmt(top) }
+    }
+
+    function barChart(values) {
+      const n = values?.length ?? 0
+      const top = n ? Math.max(...values) : 0
+      const w = n ? 100 / n : 0
+      const bars = top ? values.map((v, i) => v ? { x: i * w + w * 0.15, w: w * 0.7, h: Math.max(v / top * 38, 1), y: 40 - Math.max(v / top * 38, 1) } : null).filter(Boolean) : []
+      return { bars, max: fmt(top), total: fmt(values?.reduce((a, b) => a + b, 0) ?? 0) }
+    }
+
+    const charts = computed(() => {
+      const h = hist.value, l = llmHist.value
+      const s = h.samples ?? []
+      const sysLine = i => lineChart(s.map(r => [r[0], r[i]]), h.since, h.now, (h.interval_s ?? 60) * 3, 10)
+      const n = l.tps?.length ?? 0
+      const tpsPoints = (l.tps ?? []).map((v, i) => [l.since + (i + 0.5) * (l.now - l.since) / n, v]).filter(p => p[1] != null)
+      return {
+        cpu: sysLine(1), ram: sysLine(2), disk: sysLine(3),
+        calls: barChart(l.calls), tokens: barChart(l.tokens),
+        tps: lineChart(tpsPoints, l.since, l.now, 0, 1),
+      }
+    })
+
+    async function fetchHistory() {
+      const q = `?hours=${hours.value}`
+      fetch('/api/history' + q).then(r => r.json()).then(d => { hist.value = d }).catch(() => {})
+      fetch('/api/llm/history' + q).then(r => r.json()).then(d => { llmHist.value = d }).catch(() => { llmHist.value = {} })
+    }
 
     const appServices   = computed(() => services.value.filter(s => s.controllable))
     const infraServices = computed(() => services.value.filter(s => !s.controllable))
@@ -633,13 +777,16 @@ createApp({
     onMounted(() => {
       fetchAll()
       timer = setInterval(fetchAll, 10000)
+      fetchHistory()
+      histTimer = setInterval(fetchHistory, 60000)
     })
     onUnmounted(() => {
       clearInterval(timer)
+      clearInterval(histTimer)
       Object.values(logTimers).forEach(clearInterval)
     })
 
-    return { sys, services, llm, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass }
+    return { sys, services, llm, appServices, infraServices, error, lastUpdate, uptimeFormatted, accentFor, busy, serviceAction, updating, updateMsg, pullAndRestart, logs, showLogs, logPanels, toggleLogs, logClass, hours, setHours, charts }
   }
 }).mount('#app')
 </script>
