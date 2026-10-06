@@ -1,5 +1,6 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, abort, jsonify, render_template, request
 from flask_cors import CORS
+import ipaddress
 import os
 import psutil
 import subprocess
@@ -11,8 +12,13 @@ import urllib.request
 from contextlib import closing
 from datetime import datetime
 from services import SERVICES, LLM_PROXY_URL
+import vault
 
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# La page /vault expose des métadonnées personnelles (titres, résumés, projets) :
+# servie uniquement via Tailscale, pas au reste du réseau local.
+VAULT_RESEAUX = [ipaddress.ip_network("100.64.0.0/10"), ipaddress.ip_network("127.0.0.0/8")]
 
 # Historique des ressources : un échantillon par minute, gardé 24 h.
 HISTORY_DB = os.path.join(REPO_DIR, "data", "history.db")
@@ -230,11 +236,33 @@ def api_llm_history():
     })
 
 
+def tailscale_seulement():
+    try:
+        adresse = ipaddress.ip_address(request.remote_addr or "")
+    except ValueError:
+        abort(403)
+    if not any(adresse in reseau for reseau in VAULT_RESEAUX):
+        abort(403, "Page vault accessible uniquement via Tailscale (http://100.67.37.21:5001/vault).")
+
+
+@app.route("/api/vault")
+def api_vault():
+    """Métadonnées du second cerveau (jamais le corps des notes ni les transcriptions)."""
+    tailscale_seulement()
+    return jsonify(vault.collecter(get_service_status))
+
+
 # ── Frontend ──────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/vault")
+def page_vault():
+    tailscale_seulement()
+    return render_template("vault.html")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>THOMELAB · Vault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='monitor.css') }}" />
+  <style>
+    .section-title.spaced { margin-top: 32px; }
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 1100px) { .health-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px)  { .health-grid { grid-template-columns: 1fr; } }
+    .health-grid .svc-card { gap: 8px; }
+    .detail { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+    .detail b { color: var(--text); font-weight: 500; }
+    .detail .warn { color: var(--amber); }
+    .detail .bad  { color: var(--red); }
+
+    .resources-grid.four { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 900px) { .resources-grid.four { grid-template-columns: repeat(2, 1fr); } }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .chip {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 1000px) { .two-col { grid-template-columns: 1fr; } }
+    .panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      min-width: 0;
+    }
+    .panel + .panel { margin-top: 12px; }
+    .panel-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    table.projects { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    table.projects th {
+      font-size: 9px;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      text-align: left;
+      padding: 0 8px 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    table.projects td {
+      font-size: 11px;
+      padding: 8px 8px 8px 0;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    table.projects tr:last-child td { border-bottom: none; }
+    table.projects .name { color: #fff; font-weight: 500; }
+    table.projects .state { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; }
+    table.projects .todo { color: var(--amber); }
+    .chip.todo { color: var(--amber); border-color: var(--amber-dim); margin-left: 4px; white-space: nowrap; }
+    .status-pill { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; padding: 2px 6px; border-radius: 3px; }
+    .status-pill.actif   { background: var(--green-dim); color: var(--green); }
+    .status-pill.termine { background: var(--bg3); color: var(--muted); }
+    .status-pill.autre   { background: var(--amber-dim); color: var(--amber); }
+
+    ul.plain { list-style: none; }
+    ul.plain li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 11px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    ul.plain li:last-child { border-bottom: none; }
+    ul.plain .left { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    ul.plain .left small { color: var(--text-dim); margin-left: 6px; }
+    ul.plain .right { color: var(--text-dim); flex-shrink: 0; }
+
+    .tools { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; margin-top: 12px; font-size: 11px; }
+    .tools .t-name { color: var(--text-dim); }
+    .tools .t-bar { height: 3px; background: var(--blue); opacity: 0.7; border-radius: 2px; }
+    .tools .t-n { color: var(--text); text-align: right; }
+
+    .machines-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    @media (max-width: 1100px) { .machines-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px)  { .machines-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+{% raw %}<div id="app">
+
+  <header class="fade-in">
+    <div class="logo">
+      <span class="logo-host">THOMELAB</span>
+      <span class="logo-label">Monitor</span>
+      <nav class="nav-tabs"><a href="/">Système</a><a href="/vault" class="active">Vault</a></nav>
+    </div>
+    <div class="header-right">
+      <div class="uptime-badge"><span class="pulse"></span>second cerveau</div>
+      <div class="last-update">mis à jour {{ d.genere ? heure(d.genere) : '—' }}</div>
+      <div v-if="erreur" class="error-msg">{{ erreur }}</div>
+    </div>
+  </header>
+
+  <div v-if="!d.genere && !erreur" class="loading">Chargement…</div>
+
+  <template v-if="d.genere">
+
+  <!-- Santé -->
+  <div class="section-title">Santé</div>
+  <div class="health-grid fade-in">
+    <div class="svc-card">
+      <div class="svc-top">
+        <div class="svc-indicator" :class="d.mcp"></div>
+        <div class="svc-info"><div class="svc-name">Serveur MCP</div><div class="svc-unit">mcp-obsidian.service</div></div>
+        <div class="svc-badge" :class="d.mcp">{{ d.mcp }}</div>
+      </div>
+      <div class="detail" v-if="!c.erreur">index : <b>{{ c.total }}</b> notes · {{ depuis(c.indexe_le) }}</div>
+      <div class="detail" v-if="u.dernier">dernier appel {{ depuis(u.dernier) }}</div>
+    </div>
+
+    <div class="svc-card">
+      <div class="svc-top">
+        <div class="svc-indicator" :class="santeSync"></div>
+        <div class="svc-info"><div class="svc-name">Syncthing</div><div class="svc-unit">dossier vault</div></div>
+        <div class="svc-badge" :class="santeSync">{{ s.erreur ? 'erreur' : s.etat }}</div>
+      </div>
+      <div v-if="s.erreur" class="error-msg">{{ s.erreur }}</div>
+      <template v-else>
+        <div class="detail" v-for="a in s.appareils" :key="a.nom">
+          {{ a.nom }} :
+          <b v-if="a.connecte" style="color:var(--green)">connecté</b>
+          <span v-else :class="ancien(a.vu, 3) ? 'warn' : ''">déconnecté · vu {{ depuis(a.vu) }}</span>
+        </div>
+        <div class="detail" :class="s.erreurs || s.a_recevoir ? 'warn' : ''">{{ s.erreurs }} erreur(s) · {{ s.a_recevoir }} en attente</div>
+      </template>
+    </div>
+
+    <div class="svc-card">
+      <div class="svc-top">
+        <div class="svc-indicator" :class="santeGit"></div>
+        <div class="svc-info"><div class="svc-name">Git</div><div class="svc-unit">tomagreg/vault</div></div>
+        <div class="svc-badge" :class="santeGit">{{ santeGit === 'active' ? 'à jour' : (g.erreur ? 'erreur' : 'à pousser') }}</div>
+      </div>
+      <div v-if="g.erreur" class="error-msg">{{ g.erreur }}</div>
+      <template v-else>
+        <div class="detail">dernier commit {{ depuis(g.dernier_commit) }}</div>
+        <div class="detail" :class="g.non_pousses || g.non_commites ? 'warn' : ''">
+          {{ g.non_pousses ?? '?' }} non poussé(s) · {{ g.non_commites }} modif. non commitée(s)
+        </div>
+      </template>
+    </div>
+
+    <div class="svc-card">
+      <div class="svc-top">
+        <div class="svc-indicator" :class="santeIntegrite"></div>
+        <div class="svc-info"><div class="svc-name">Intégrité</div><div class="svc-unit">liens et frontmatter</div></div>
+        <div class="svc-badge" :class="santeIntegrite">{{ santeIntegrite === 'active' ? 'ok' : 'à voir' }}</div>
+      </div>
+      <div v-if="c.erreur" class="error-msg">{{ c.erreur }}</div>
+      <template v-else>
+        <div class="detail" :class="c.liens_casses ? 'bad' : ''">{{ c.liens_casses }} lien(s) cassé(s)</div>
+        <div class="detail" :class="c.erreurs ? 'bad' : ''">{{ c.erreurs }} frontmatter invalide(s)</div>
+        <div class="detail">{{ c.orphelines }} note(s) isolée(s)</div>
+      </template>
+    </div>
+
+    <div class="svc-card">
+      <div class="svc-top">
+        <div class="svc-indicator" :class="r.actif ? 'active' : 'inactive'"></div>
+        <div class="svc-info"><div class="svc-name">RogerLeJardinier</div><div class="svc-unit">entretien nocturne</div></div>
+        <div class="svc-badge" :class="r.actif ? 'active' : 'inactive'">{{ r.actif ? 'actif' : 'à venir' }}</div>
+      </div>
+      <div v-if="r.erreur" class="error-msg">{{ r.erreur }}</div>
+      <template v-else-if="r.actif">
+        <div class="detail">dernier rapport : <b>{{ jour(r.dernier) }}</b></div>
+        <div class="detail" :class="r.questions ? 'warn' : ''">{{ r.questions }} question(s) pour toi</div>
+      </template>
+      <div v-else class="detail">pas encore en service (phase 5)</div>
+    </div>
+  </div>
+
+  <!-- À trier -->
+  <div class="section-title">À trier</div>
+  <div v-if="t.erreur" class="error-msg">{{ t.erreur }}</div>
+  <div v-else class="resources-grid four fade-in" style="animation-delay:.05s">
+    <div class="res-card" :style="{'--accent': accent(t.captures)}">
+      <div class="res-label">Boîte de réception</div>
+      <div class="res-value" :style="{color: accent(t.captures)}">{{ t.captures }}<span> capture(s)</span></div>
+      <div class="res-sub">
+        <template v-if="t.captures">{{ t.captures_fichiers }} jour(s) · plus ancienne : {{ jour(t.captures_plus_ancienne) }}</template>
+        <template v-else>boîte vide</template>
+      </div>
+    </div>
+    <div class="res-card" :style="{'--accent': accent(t.sessions)}">
+      <div class="res-label">Sessions Claude Code</div>
+      <div class="res-value" :style="{color: accent(t.sessions)}">{{ t.sessions }}<span> en attente</span></div>
+      <div class="res-sub">{{ attente }}</div>
+    </div>
+    <div class="res-card" :style="{'--accent': accent(t.conversations + t.memoire)}">
+      <div class="res-label">claude.ai</div>
+      <div class="res-value" :style="{color: accent(t.conversations + t.memoire)}">{{ t.conversations }}<span> conversation(s)</span></div>
+      <div class="res-sub">{{ t.memoire }} restitution(s) de mémoire · {{ attente }}</div>
+    </div>
+    <div class="res-card" :style="{'--accent': accent(t.a_completer?.length)}">
+      <div class="res-label">Notes à compléter</div>
+      <div class="res-value" :style="{color: accent(t.a_completer?.length)}">{{ t.a_completer?.length }}<span> par toi</span></div>
+      <div class="chips"><span class="chip" v-for="n in t.a_completer" :key="n">{{ n }}</span></div>
+      <div v-if="t.a_corriger?.length" class="error-msg">à corriger : {{ t.a_corriger.join(', ') }}</div>
+    </div>
+  </div>
+
+  <!-- Contenu -->
+  <div class="section-title spaced">Contenu</div>
+  <div v-if="c.erreur" class="error-msg">{{ c.erreur }}</div>
+  <div v-else class="resources-grid four fade-in" style="animation-delay:.1s">
+    <div class="res-card" style="--accent: var(--blue)">
+      <div class="res-label">Notes</div>
+      <div class="res-value" style="color: var(--blue)">{{ c.total }}</div>
+      <div class="chips"><span class="chip" v-for="(n, ty) in c.types" :key="ty">{{ ty }} {{ n }}</span></div>
+    </div>
+    <div class="res-card" style="--accent: var(--green)">
+      <div class="res-label">Projets actifs</div>
+      <div class="res-value" style="color: var(--green)">{{ c.projets_actifs }}<span> / {{ p.length ?? '—' }}</span></div>
+      <div class="res-sub">{{ pAcompleter }} hub(s) à compléter</div>
+    </div>
+    <div class="res-card" style="--accent: var(--blue)">
+      <div class="res-label">Liens</div>
+      <div class="res-value" style="color: var(--blue)">{{ c.liens }}</div>
+      <div class="res-sub">{{ (c.liens / Math.max(c.total, 1)).toFixed(1) }} par note en moyenne</div>
+    </div>
+    <div class="res-card" style="--accent: var(--blue)">
+      <div class="res-label">Sessions (7 j)</div>
+      <div class="res-value" style="color: var(--blue)">{{ c.sessions_7j }}</div>
+      <div class="res-sub">notes de session écrites ou mises à jour</div>
+    </div>
+  </div>
+
+  <!-- Projets + activité -->
+  <div class="two-col fade-in" style="animation-delay:.15s;margin-top:32px">
+    <div class="panel">
+      <div class="panel-title">Projets</div>
+      <div v-if="p.erreur" class="error-msg">{{ p.erreur }}</div>
+      <table v-else class="projects">
+        <colgroup><col style="width:24%"><col style="width:13%"><col style="width:11%"><col></colgroup>
+        <thead><tr><th>projet</th><th>statut</th><th>maj</th><th>état actuel</th></tr></thead>
+        <tbody>
+          <tr v-for="x in p" :key="x.nom">
+            <td class="name">{{ x.titre }}</td>
+            <td><span class="status-pill" :class="['actif', 'termine'].includes(x.statut) ? x.statut : 'autre'">{{ x.statut ?? '—' }}</span></td>
+            <td style="color:var(--text-dim)">{{ jourCourt(x.maj) }}</td>
+            <td class="state" :class="{ todo: x.etat_vide }" :title="x.etat">
+              {{ x.etat_vide ? '⚠ ' : '' }}{{ x.etat.replace(/`/g, '').replace(/^_(.*)_$/, '$1') || 'pas d\'état actuel' }}
+              <span v-if="x.resume_a_completer && !x.etat_vide" class="chip todo">résumé à compléter</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-title">Modifiées récemment</div>
+        <div v-if="rec.erreur" class="error-msg">{{ rec.erreur }}</div>
+        <ul v-else class="plain">
+          <li v-for="n in rec" :key="n.chemin">
+            <span class="left" :title="n.chemin">{{ n.titre }}<small>{{ n.type }}</small></span>
+            <span class="right">{{ depuis(n.modifie) }}</span>
+          </li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Usage MCP (7 j)</div>
+        <div v-if="u.erreur" class="error-msg">{{ u.erreur }}</div>
+        <template v-else>
+          <div class="res-value" style="color:var(--blue);font-size:22px">{{ u.total }}<span> appels d'outils</span></div>
+          <svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" style="color:var(--blue)">
+            <line class="spark-base" x1="0" y1="40" x2="100" y2="40" vector-effect="non-scaling-stroke" />
+            <rect v-for="b in usageBars" :key="b.x" class="spark-bar" :x="b.x" :y="b.y" :width="b.w" :height="b.h" />
+          </svg>
+          <div class="spark-meta"><span>{{ jourCourt(u.jours?.[0]) }}</span><span>aujourd'hui</span></div>
+          <div class="tools">
+            <template v-for="[nom, n] in u.outils" :key="nom">
+              <span class="t-name">{{ nom }}</span>
+              <span><div class="t-bar" :style="{ width: (n / u.outils[0][1] * 100) + '%' }"></div></span>
+              <span class="t-n">{{ n }}</span>
+            </template>
+          </div>
+          <div class="detail" style="margin-top:10px" :class="u.refus ? 'warn' : ''">{{ u.refus }} accès refusé(s) hors du vault</div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Capture -->
+  <div class="section-title">Capture</div>
+  <div v-if="cap.erreur" class="error-msg">{{ cap.erreur }}</div>
+  <div v-else class="machines-grid fade-in" style="animation-delay:.2s">
+    <div class="svc-card" v-for="m in cap.machines" :key="m.nom">
+      <div class="svc-top">
+        <div class="svc-indicator" :class="etatMachine(m)"></div>
+        <div class="svc-info"><div class="svc-name">{{ m.nom }}</div><div class="svc-unit">Claude Code</div></div>
+        <div class="svc-badge" :class="etatMachine(m)">{{ m.derniere ? m.sessions + ' sess.' : 'jamais' }}</div>
+      </div>
+      <div class="detail">{{ m.derniere ? 'dernière session ' + depuis(m.derniere) : 'hook pas encore installé' }}</div>
+      <div class="detail">{{ taille(m.octets) }}</div>
+    </div>
+    <div class="res-card" :style="{'--accent': accentPct(brutPct)}">
+      <div class="res-label">Dossier brut</div>
+      <div class="res-value" :style="{color: accentPct(brutPct)}">{{ taille(cap.brut_octets) }}</div>
+      <div class="res-sub">sur {{ taille(cap.brut_max) }} · purge à 90 jours</div>
+      <div class="bar-track"><div class="bar-fill" :style="{width: Math.max(brutPct, 0.5) + '%', background: accentPct(brutPct)}"></div></div>
+      <div class="detail" style="margin-top:10px" :class="exportEnRetard ? 'warn' : ''">
+        claude.ai : {{ cap.claude_ai_import ? 'dernier import ' + depuis(cap.claude_ai_import) : 'jamais importé' }}
+      </div>
+    </div>
+  </div>
+
+  </template>
+</div>{% endraw %}
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue
+
+createApp({
+  setup() {
+    const d = ref({})
+    const erreur = ref(null)
+    const maintenant = ref(Date.now())
+    let timers = []
+
+    async function charger() {
+      try {
+        const r = await fetch('/api/vault')
+        if (!r.ok) throw new Error(r.status === 403 ? 'accès réservé à Tailscale' : `HTTP ${r.status}`)
+        d.value = await r.json()
+        erreur.value = null
+      } catch (e) {
+        erreur.value = `vault injoignable : ${e.message}`
+      }
+    }
+
+    const bloc = k => computed(() => d.value[k] ?? {})
+    const c = bloc('contenu'), t = bloc('a_trier'), u = bloc('usage'), cap = bloc('capture')
+    const s = bloc('syncthing'), g = bloc('git'), r = bloc('roger')
+    const p = computed(() => d.value.projets ?? [])
+    const rec = computed(() => d.value.recentes ?? [])
+
+    function depuis(iso) {
+      if (!iso) return 'jamais'
+      const s = Math.max(0, (maintenant.value - new Date(iso).getTime()) / 1000)
+      if (s < 60) return "à l'instant"
+      if (s < 3600) return `il y a ${Math.floor(s / 60)} min`
+      if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`
+      if (s < 86400 * 30) return `il y a ${Math.floor(s / 86400)} j`
+      return 'le ' + new Date(iso).toLocaleDateString('fr-FR')
+    }
+    const ancien = (iso, jours) => !iso || (maintenant.value - new Date(iso).getTime()) > jours * 86400e3
+    const heure = iso => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const jour = iso => iso ? new Date(iso + (iso.length === 10 ? 'T12:00:00' : '')).toLocaleDateString('fr-FR') : '—'
+    const jourCourt = iso => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '—'
+    function taille(o) {
+      if (o == null) return '—'
+      if (o < 1024 ** 2) return `${(o / 1024).toFixed(0)} Ko`
+      if (o < 1024 ** 3) return `${(o / 1024 ** 2).toFixed(1).replace('.', ',')} Mo`
+      return `${(o / 1024 ** 3).toFixed(2).replace('.', ',')} Go`
+    }
+    const accent = n => n ? 'var(--amber)' : 'var(--green)'
+    const accentPct = v => v >= 85 ? 'var(--red)' : v >= 60 ? 'var(--amber)' : 'var(--green)'
+
+    const santeSync = computed(() => {
+      if (s.value.erreur) return 'failed'
+      if (s.value.erreurs) return 'failed'
+      if (s.value.a_recevoir || (s.value.appareils ?? []).some(a => !a.connecte && ancien(a.vu, 3))) return 'unknown'
+      return 'active'
+    })
+    const santeGit = computed(() => g.value.erreur ? 'failed' : (g.value.non_pousses || g.value.non_commites) ? 'unknown' : 'active')
+    const santeIntegrite = computed(() => c.value.erreur ? 'failed' : (c.value.liens_casses || c.value.erreurs) ? 'unknown' : 'active')
+    const etatMachine = m => !m.derniere ? 'inactive' : ancien(m.derniere, 7) ? 'unknown' : 'active'
+    const attente = computed(() => t.value.depuis_rapport
+      ? `depuis le passage du ${jour(t.value.depuis_rapport)}` : 'RogerLeJardinier pas encore en service')
+    const pAcompleter = computed(() => p.value.filter?.(x => x.etat_vide || x.resume_a_completer).length ?? 0)
+    const brutPct = computed(() => cap.value.brut_max ? cap.value.brut_octets / cap.value.brut_max * 100 : 0)
+    const exportEnRetard = computed(() => ancien(cap.value.claude_ai_import, 28))
+    const usageBars = computed(() => {
+      const v = u.value.appels ?? [], n = v.length, top = Math.max(...v, 0), w = n ? 100 / n : 0
+      return top ? v.map((x, i) => x ? { x: i * w + w * 0.15, w: w * 0.7, h: Math.max(x / top * 38, 1), y: 40 - Math.max(x / top * 38, 1) } : null).filter(Boolean) : []
+    })
+
+    onMounted(() => {
+      charger()
+      timers.push(setInterval(charger, 60000))
+      timers.push(setInterval(() => maintenant.value = Date.now(), 30000))
+    })
+    onUnmounted(() => timers.forEach(clearInterval))
+
+    return { d, erreur, c, t, u, cap, s, g, r, p, rec, depuis, ancien, heure, jour, jourCourt, taille, accent, accentPct,
+             santeSync, santeGit, santeIntegrite, etatMachine, attente, pAcompleter, brutPct, exportEnRetard, usageBars }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>
