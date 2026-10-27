@@ -10,6 +10,7 @@ SERVICES = [
     {"name": "MCP Obsidian", "systemd": "mcp-obsidian", "url": None,                   "controllable": True},
     {"name": "Postroom Dashboard", "systemd": "postroom-dashboard", "url": "http://100.67.37.21:5002", "controllable": True},
     {"name": "Shoals",       "systemd": "shoals",       "url": "http://100.67.37.21:5003", "controllable": True},
+    {"name": "Memo",         "systemd": "memo",         "url": "http://100.67.37.21:5005", "controllable": True},
 ]
 
 # Proxy de journalisation du LXC llm (Ollama), lu par /api/llm.
